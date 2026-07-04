@@ -1,0 +1,37 @@
+# PROMETHEUS Quant Lab — backend dependencies
+# Versions below are floors (>=), verified working together in Sprint 1
+# development. Pin exact versions with `pip freeze` once you have a
+# reproducible deployment environment you're happy with.
+
+# --- Web framework ---
+fastapi>=0.139.0
+uvicorn[standard]>=0.49.0
+python-multipart>=0.0.20
+
+# --- Database ---
+sqlalchemy>=2.0.51
+alembic>=1.18.5
+psycopg2-binary>=2.9.12
+
+# --- Validation / config ---
+pydantic>=2.13.4
+pydantic-settings>=2.14.2
+email-validator>=2.2.0
+
+# --- Auth / security ---
+pyjwt>=2.7.0
+bcrypt>=5.0.0
+
+# --- Caching / sessions ---
+redis>=8.0.1
+
+# --- Market data ---
+yfinance>=1.5.1
+
+# --- Testing ---
+pytest>=9.1.1
+pytest-cov>=7.1.0
+httpx>=0.28.1
+
+# --- Misc ---
+python-dotenv>=1.0.1

@@ -1,0 +1,21 @@
+[project]
+name = "prometheus-quant-lab-backend"
+version = "0.1.0"
+description = "PROMETHEUS Quant Lab — Sprint 1 foundational backend"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/main.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

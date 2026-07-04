@@ -1,0 +1,60 @@
+version: "3.9"
+
+# PROMETHEUS Quant Lab — Sprint 1 Docker Compose
+#
+# Matches 14_Deployment_Guide.md's "Phase 1: Single server deployment,
+# Docker Compose" — a modular monolith (all backend concerns in one
+# `backend` service) rather than the later-phase per-engine microservices
+# split (market-data-service, risk-engine-service, execution-engine-service)
+# described for Phase 3. Splitting those out is a scaling exercise for a
+# future sprint, not a Sprint 1 requirement.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-prometheus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prometheus}
+      POSTGRES_DB: ${POSTGRES_DB:-prometheus}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prometheus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-prometheus}:${POSTGRES_PASSWORD:-prometheus}@postgres:5432/${POSTGRES_DB:-prometheus}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
