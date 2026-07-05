@@ -69,3 +69,25 @@ def registered_user(client):
     body = resp.json()
     headers = {"Authorization": f"Bearer {body['access_token']}"}
     return client, headers, body
+
+
+@pytest.fixture()
+def live_price(monkeypatch):
+    """OrderService prices fills (and position closes) via the module-level
+    default provider, NOT via whatever provider is injected into
+    PaperTradingService for a test — that's real production behavior, but
+    deterministic tests need the fill price to agree with the injected
+    provider's world. Patches order_service's imported get_latest_price to
+    a controllable holder; tests mutate holder['price'] to move 'the
+    market'. Shared across Sprint 3 test modules (originally lived only in
+    test_paper_trading_api.py; moved here once a second file needed it,
+    rather than duplicating it)."""
+    from decimal import Decimal
+
+    holder = {"price": Decimal("110")}
+
+    def _fake(symbol):
+        return holder["price"], "test_double"
+
+    monkeypatch.setattr("app.application.services.order_service.get_latest_price", _fake)
+    return holder

@@ -49,6 +49,8 @@ class OrderResponse(ORMModel):
     take_profit: Decimal | None
     status: str
     rejection_reason: str | None
+    broker_order_id: str | None = None
+    broker_account_id: uuid.UUID | None = None
     submitted_at: dt.datetime | None
     filled_at: dt.datetime | None
     created_at: dt.datetime

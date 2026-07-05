@@ -22,6 +22,85 @@ from app.infrastructure.repositories.risk_event_repository import RiskEventRepos
 router = APIRouter(prefix="/risk", tags=["Risk Engine"])
 
 
+# ----------------------------------------------------------------------
+# Emergency Kill Switch (Sprint 4 module 10 + 07_Risk_Management_Engine.md
+# "Emergency Controls"). The MECHANISM is Sprint 1's
+# RiskService.trigger_kill_switch / reset_kill_switch, already enforced
+# first in risk_engine.evaluate_order and already fed automatically by
+# the Sprint 4 circuit breaker -- these endpoints add the MANUAL trigger
+# and the operator reset. One kill switch, three triggers (manual,
+# circuit breaker, risk limits), one enforcement point.
+# ----------------------------------------------------------------------
+
+from pydantic import BaseModel
+
+
+class KillSwitchRequest(BaseModel):
+    reason: str | None = None
+    close_positions: bool = False
+    """When true, every open position on the portfolio is closed
+    immediately after activation -- the spec's "Optionally close open
+    positions if configured" kill-switch action. Closing bypasses the
+    (now-active) kill switch by design: the switch blocks NEW risk, and
+    exits must always remain available. Positions are closed through the
+    portfolio's standard close path; broker-side close-all for live
+    positions is wired through the broker adapter layer."""
+
+
+class KillSwitchResponse(BaseModel):
+    kill_switch_active: bool
+    positions_closed: int
+    detail: str
+
+
+@router.post("/kill-switch", response_model=KillSwitchResponse)
+def activate_kill_switch(
+    request: KillSwitchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Manual emergency stop. Idempotent: activating an already-active
+    switch is safe (the original trip reason/event is preserved; a new
+    event is still recorded for the audit trail)."""
+    portfolio = PortfolioService(db).get_default_for_user(current_user.id)
+    reason = request.reason or "Manual emergency stop requested by user."
+    RiskService(db).trigger_kill_switch(portfolio, reason)
+
+    positions_closed = 0
+    if request.close_positions:
+        from app.application.services.order_service import OrderService
+
+        portfolio_service = PortfolioService(db)
+        order_service = OrderService(db)
+        for position in portfolio_service.list_open_positions(portfolio):
+            order_service.close_position(portfolio, position.id, reason="Kill Switch: Emergency Close")
+            positions_closed += 1
+
+    return KillSwitchResponse(
+        kill_switch_active=True,
+        positions_closed=positions_closed,
+        detail=f"Kill switch activated. {positions_closed} position(s) closed." if request.close_positions
+        else "Kill switch activated. Open positions preserved.",
+    )
+
+
+@router.post("/kill-switch/reset", response_model=KillSwitchResponse)
+def reset_kill_switch(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Operator-only manual reset -- the deliberate, non-automatic
+    counterpart to every automatic trigger. Also re-arms nothing else:
+    a tripped circuit breaker stays tripped until ITS OWN reset, so
+    resetting the kill switch while the broker is still failing will
+    simply result in an immediate re-trip on the next failure."""
+    portfolio = PortfolioService(db).get_default_for_user(current_user.id)
+    RiskService(db).reset_kill_switch(portfolio)
+    return KillSwitchResponse(
+        kill_switch_active=False, positions_closed=0, detail="Kill switch reset. Trading re-enabled.",
+    )
+
+
 @router.get("/status", response_model=RiskStatusResponse)
 def get_risk_status(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     portfolio_service = PortfolioService(db)

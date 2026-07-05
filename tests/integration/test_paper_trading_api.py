@@ -13,32 +13,12 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-import pytest
-
 from app.application.schemas.paper_trading import SessionItemRequest, StartSessionRequest
 from app.application.services.paper_trading_service import (
     PaperTradingService,
     mark_interrupted_sessions,
 )
 from app.infrastructure.market_data.base_provider import MarketDataProvider, MarketDataProviderError
-
-
-@pytest.fixture()
-def live_price(monkeypatch):
-    """OrderService prices fills (and position closes) via the module-level
-    default provider, NOT via the provider injected into
-    PaperTradingService — that's real production behavior, but for
-    deterministic tests the fill price must agree with the injected
-    provider's world. This patches order_service's imported
-    get_latest_price to a controllable holder; tests mutate
-    holder['price'] to move 'the market'."""
-    holder = {"price": Decimal("110")}
-
-    def _fake(symbol):
-        return holder["price"], "test_double"
-
-    monkeypatch.setattr("app.application.services.order_service.get_latest_price", _fake)
-    return holder
 
 
 # ----------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.base import Base, UUIDPrimaryKeyMixin
@@ -34,6 +34,19 @@ class BrokerAccount(UUIDPrimaryKeyMixin, Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    live_trading_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    """Sprint 4 addition. The explicit 'mode switching requires user
+    confirmation' gate from 10_Live_Trading_Engine.md's Trading Modes
+    section: connecting a broker (status=CONNECTED) is NOT the same as
+    authorizing it to place real trades. Only a dedicated confirmation
+    endpoint may set this True; LiveExecutionEngine refuses to place any
+    order when it's False, regardless of connection status."""
+    last_health_check_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_connection_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    """Diagnostics for Heartbeat Monitoring / Circuit Breakers (Sprint 4
+    modules 8-9) — the last observed failure, kept for operator visibility
+    without needing to dig through logs."""
 
     user: Mapped["User"] = relationship(back_populates="broker_accounts")
 
